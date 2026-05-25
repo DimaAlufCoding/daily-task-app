@@ -54,7 +54,7 @@ export default function LoginPage() {
           <CardDescription>Daily Task App</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
