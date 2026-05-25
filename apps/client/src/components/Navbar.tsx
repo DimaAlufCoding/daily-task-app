@@ -1,5 +1,8 @@
 import { useNavigate } from 'react-router-dom'
+import { Moon, Sun } from 'lucide-react'
 import { signOut } from '../lib/auth-client'
+import { Button } from '@/components/ui/button'
+import { useTheme } from './ThemeProvider'
 
 interface NavbarProps {
   userName: string
@@ -7,25 +10,30 @@ interface NavbarProps {
 
 export default function Navbar({ userName }: NavbarProps) {
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
 
   async function handleSignOut() {
     await signOut()
     navigate('/login')
   }
 
+  function toggleTheme() {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+
   return (
-    <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-      <span className="font-semibold text-gray-800 text-lg">Daily Task App</span>
-      <div className="flex items-center gap-4">
-        <span className="text-sm text-gray-600">
-          Hello, <strong className="text-gray-900">{userName}</strong>
+    <nav className="bg-card border-b border-border px-6 py-3 flex items-center justify-between">
+      <span className="font-semibold text-foreground text-lg">Daily Task App</span>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">
+          Hello, <strong className="text-foreground">{userName}</strong>
         </span>
-        <button
-          onClick={handleSignOut}
-          className="text-sm text-red-600 hover:text-red-800 font-medium transition-colors cursor-pointer"
-        >
+        <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleSignOut}>
           Sign out
-        </button>
+        </Button>
       </div>
     </nav>
   )
