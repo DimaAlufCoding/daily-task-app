@@ -86,6 +86,23 @@ Prisma `Role` enum: `ADMIN` | `CLIENT` (default `CLIENT`).
 - `Layout` (`src/components/Layout.tsx`) — wrapper for authenticated pages; renders `<Navbar>` + `<main>`. All new authenticated pages should use `<Layout>` as their root element.
 - `Navbar` includes a Moon/Sun theme toggle, Sign out button, and a "Users" link (admin only).
 
+## E2E Testing
+
+Tests live in `apps/e2e/` and run against an isolated Supabase schema (`daily_task_test`).
+
+To write new tests, use the **`playwright-e2e-writer`** agent — it knows the project structure, test DB setup, auth helpers, and Playwright conventions for this codebase.
+
+```
+# Invoke it by name in any Claude Code session:
+playwright-e2e-writer
+```
+
+To run existing tests (stop dev servers on 3001/5173 first):
+
+```bash
+cd apps/e2e && ~/.bun/bin/bun run test
+```
+
 ## Documentation
 
 Always use **context7** MCP to fetch up-to-date documentation before using any library or framework. Do not rely on training data for API shapes, configuration, or version-specific behavior.
