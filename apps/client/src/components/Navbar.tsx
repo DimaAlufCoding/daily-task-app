@@ -25,7 +25,7 @@ export default function Navbar({ userName }: NavbarProps) {
 
   return (
     <nav className="bg-card border-b border-border px-6 py-3 flex items-center justify-between">
-      <span className="font-semibold text-foreground text-lg">Daily Task App</span>
+      <Link to="/" className="font-semibold text-foreground text-lg hover:opacity-80 transition-opacity">Daily Task App</Link>
       <div className="flex items-center gap-3">
         <span className="text-sm text-muted-foreground">
           Hello, <strong className="text-foreground">{userName}</strong>
