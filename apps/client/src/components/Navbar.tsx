@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
-import { signOut } from '../lib/auth-client'
+import { signOut, useSession } from '../lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { useTheme } from './ThemeProvider'
 
@@ -11,6 +11,8 @@ interface NavbarProps {
 export default function Navbar({ userName }: NavbarProps) {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
 
   async function handleSignOut() {
     await signOut()
@@ -28,6 +30,11 @@ export default function Navbar({ userName }: NavbarProps) {
         <span className="text-sm text-muted-foreground">
           Hello, <strong className="text-foreground">{userName}</strong>
         </span>
+        {isAdmin && (
+          <Link to="/users" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Users
+          </Link>
+        )}
         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>

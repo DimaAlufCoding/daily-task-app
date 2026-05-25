@@ -67,13 +67,24 @@ better-auth handles auth on both client and server.
 
 - Client helpers: `useSession`, `signIn`, `signOut` from `apps/client/src/lib/auth-client.ts`
 - `ProtectedRoute` in `App.tsx` guards routes, redirecting to `/login` if no session
+- `AdminRoute` in `App.tsx` guards admin-only routes — redirects non-admins to `/`, unauthenticated users to `/login`
 - `LoginPage.tsx` uses react-hook-form + zod for validation
+
+## Roles
+
+Prisma `Role` enum: `ADMIN` | `CLIENT` (default `CLIENT`).
+
+- Server exposes role in session via `user.additionalFields.role` in `apps/server/src/lib/auth.ts`
+- Client infers the type via `inferAdditionalFields` plugin in `apps/client/src/lib/auth-client.ts`
+- Check role with `session.user.role === 'ADMIN'`
+- Admin-only pages use `<AdminRoute>` in `App.tsx`
+- `Navbar` shows a "Users" link only when `session.user.role === 'ADMIN'`
 
 ## Layout & Theming
 
 - `ThemeProvider` (`src/components/ThemeProvider.tsx`) — React context for `light | dark | system`; persists to `localStorage`; toggles `dark` class on `<html>`. Mounted at the root in `main.tsx`.
 - `Layout` (`src/components/Layout.tsx`) — wrapper for authenticated pages; renders `<Navbar>` + `<main>`. All new authenticated pages should use `<Layout>` as their root element.
-- `Navbar` includes a Moon/Sun theme toggle and the Sign out button.
+- `Navbar` includes a Moon/Sun theme toggle, Sign out button, and a "Users" link (admin only).
 
 ## Documentation
 

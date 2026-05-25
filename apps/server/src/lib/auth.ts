@@ -10,4 +10,12 @@ export const auth = betterAuth({
   },
   trustedOrigins: (process.env.TRUSTED_ORIGINS ?? '').split(',').filter(Boolean),
   session: { storeSessionInDatabase: true },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        input: false,
+      },
+    },
+  },
 })
