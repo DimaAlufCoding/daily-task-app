@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import axios from 'axios'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Layout from '../components/Layout'
 import { useSession } from '../lib/auth-client'
 import { Badge } from '@/components/ui/badge'
@@ -22,66 +23,42 @@ interface User {
   createdAt: string
 }
 
-function useUsers() {
-  const [users, setUsers] = useState<User[] | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [fetched, setFetched] = useState(false)
+async function fetchUsers(): Promise<User[]> {
+  const { data } = await axios.get<User[]>('/api/users', { withCredentials: true })
+  return data
+}
 
-  async function fetchUsers() {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/users', { credentials: 'include' })
-      if (!res.ok) throw new Error('Failed to fetch users')
-      setUsers(await res.json())
-      setFetched(true)
-    } catch {
-      setError('Could not load users.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!fetched && !loading) fetchUsers()
-
-  async function updateRole(userId: string, role: Role) {
-    const res = await fetch(`/api/users/${userId}/role`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error((body as { error?: string }).error ?? 'Failed to update role')
-    }
-    const updated: User = await res.json()
-    setUsers(prev => prev?.map(u => (u.id === updated.id ? updated : u)) ?? null)
-  }
-
-  return { users, loading, error, updateRole }
+async function updateRole(userId: string, role: Role): Promise<User> {
+  const { data } = await axios.patch<User>(`/api/users/${userId}/role`, { role }, { withCredentials: true })
+  return data
 }
 
 export default function UserPage() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
-  const { users, loading, error, updateRole } = useUsers()
-  const [pendingId, setPendingId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  async function handleRoleToggle(user: User) {
-    const newRole: Role = user.role === 'ADMIN' ? 'CLIENT' : 'ADMIN'
-    setPendingId(user.id)
-    setActionError(null)
-    try {
-      await updateRole(user.id, newRole)
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Something went wrong')
-    } finally {
-      setPendingId(null)
-    }
-  }
+  const { data: users, isLoading, error } = useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+  })
+
+  const mutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: Role }) => updateRole(userId, role),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<User[]>(['users'], prev =>
+        prev?.map(u => (u.id === updated.id ? updated : u)) ?? []
+      )
+    },
+  })
+
+  const errorMessage = error
+    ? 'Could not load users.'
+    : mutation.error
+    ? axios.isAxiosError(mutation.error)
+      ? (mutation.error.response?.data as { error?: string })?.error ?? 'Failed to update role'
+      : 'Failed to update role'
+    : null
 
   return (
     <Layout>
@@ -93,18 +70,16 @@ export default function UserPage() {
           </p>
         </div>
 
-        {actionError && (
-          <p className="text-sm text-destructive">{actionError}</p>
+        {errorMessage && (
+          <p className="text-sm text-destructive">{errorMessage}</p>
         )}
 
-        {loading && (
+        {isLoading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             Loading users…
           </div>
         )}
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
 
         {users && (
           <div className="rounded-lg border border-border overflow-hidden">
@@ -138,10 +113,15 @@ export default function UserPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={pendingId === user.id}
-                          onClick={() => handleRoleToggle(user)}
+                          disabled={mutation.isPending && mutation.variables?.userId === user.id}
+                          onClick={() =>
+                            mutation.mutate({
+                              userId: user.id,
+                              role: user.role === 'ADMIN' ? 'CLIENT' : 'ADMIN',
+                            })
+                          }
                         >
-                          {pendingId === user.id
+                          {mutation.isPending && mutation.variables?.userId === user.id
                             ? 'Saving…'
                             : user.role === 'ADMIN'
                             ? 'Demote to Client'

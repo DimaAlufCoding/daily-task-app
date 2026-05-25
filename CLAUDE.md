@@ -20,6 +20,8 @@ daily-task-app/         ← Bun monorepo root
 - **Backend:** Express 5, TypeScript, Bun
 - **Styling:** Tailwind CSS v4 (`@tailwindcss/vite` plugin) + shadcn/ui (default theme, oklch variables)
 - **Auth:** better-auth (email/password, session via `useSession` / `signIn` / `signOut`)
+- **HTTP client:** axios (all API calls use `axios` with `withCredentials: true`)
+- **Server state:** TanStack Query v5 (`useQuery` / `useMutation` / `useQueryClient`)
 - **Drag & Drop:** dnd-kit (planned)
 - **Database:** Supabase (planned)
 - **Deployment:** Vercel (planned)
@@ -50,6 +52,16 @@ bun run dev:client
 - Client entry point: `apps/client/src/main.tsx`
 - All API routes are prefixed with `/api/`.
 - Path alias `@/*` → `./src/*` is configured in both `tsconfig.json` and `vite.config.ts`.
+
+## Data Fetching
+
+All client-side API calls use **axios** + **TanStack Query v5**. Never use `fetch` directly.
+
+- `axios` is configured per-call with `{ withCredentials: true }` — no global instance needed yet.
+- `useQuery` for reads; `useMutation` + `useQueryClient` for writes.
+- On mutation success, update the cache with `queryClient.setQueryData` to avoid unnecessary refetches.
+- Error handling: use `axios.isAxiosError(err)` to extract `err.response?.data` for server error messages.
+- `QueryClientProvider` is mounted at the root in `main.tsx`.
 
 ## shadcn/ui
 
@@ -124,3 +136,5 @@ Key library IDs:
 | shadcn/ui | `/shadcn-ui/ui` |
 | dnd-kit | `/clauderic/dnd-kit` |
 | Vite | `/vitejs/vite` |
+| axios | `/axios/axios` |
+| TanStack Query | `/tanstack/query` |
