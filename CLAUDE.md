@@ -70,7 +70,7 @@ shadcn/ui is installed with the **default theme** (Tailwind v4, `@theme inline` 
 - Components live in `apps/client/src/components/ui/`
 - Utility helper: `import { cn } from '@/lib/utils'`
 - Add new components: `~/.bun/bin/bunx shadcn@latest add <component>`
-- Installed so far: `button`, `card`, `input`, `label`
+- Installed so far: `button`, `card`, `input`, `label`, `badge`, `table`, `skeleton`
 - Tailwind v4 note: no `tailwind.config.js` — all config is in `src/index.css` via `@theme inline`. Uses `tw-animate-css` (not `tailwindcss-animate`).
 
 ## Authentication
@@ -97,6 +97,62 @@ Prisma `Role` enum: `ADMIN` | `CLIENT` (default `CLIENT`).
 - `ThemeProvider` (`src/components/ThemeProvider.tsx`) — React context for `light | dark | system`; persists to `localStorage`; toggles `dark` class on `<html>`. Mounted at the root in `main.tsx`.
 - `Layout` (`src/components/Layout.tsx`) — wrapper for authenticated pages; renders `<Navbar>` + `<main>`. All new authenticated pages should use `<Layout>` as their root element.
 - `Navbar` includes a Moon/Sun theme toggle, Sign out button, and a "Users" link (admin only).
+
+## Component Testing
+
+Component tests live alongside their page/component files as `*.test.tsx` and run in jsdom via **Vitest** + **React Testing Library**.
+
+### Commands
+
+```bash
+cd apps/client
+
+# Run all tests once (CI)
+~/.bun/bin/bun run test
+
+# Watch mode — reruns on save
+~/.bun/bin/bun run test:watch
+
+# Browser UI — best for writing new tests (live pass/fail, source view)
+~/.bun/bin/bun run test:ui
+```
+
+### Setup
+
+- Vitest config is in `vite.config.ts` (`test.environment: 'jsdom'`, `test.globals: true`)
+- `src/test/setup.ts` imports `@testing-library/jest-dom` matchers (extended `expect`)
+- Vitest global types (`describe`, `it`, `vi`, etc.) are added via `"types": ["vitest/globals"]` in `tsconfig.json`
+
+### Shared helpers
+
+`src/test/renderWithQuery.tsx` — wraps a component with `QueryClientProvider` (retry disabled) and `MemoryRouter`. Use it in every component test instead of setting up providers manually:
+
+```tsx
+import { renderWithQuery } from '../test/renderWithQuery'
+renderWithQuery(<MyPage />)
+```
+
+### Conventions
+
+- **Mock axios** with a factory so `axios.get` / `axios.patch` / `axios.isAxiosError` are `vi.fn()`:
+  ```ts
+  vi.mock('axios', () => ({
+    default: { get: vi.fn(), patch: vi.fn(), isAxiosError: vi.fn().mockReturnValue(false) },
+  }))
+  ```
+- **Mock `useSession`** from `../lib/auth-client` to control the current user:
+  ```ts
+  vi.mock('../lib/auth-client', () => ({ useSession: vi.fn() }))
+  vi.mocked(useSession).mockReturnValue({ data: { user: { id: 'u1' } } } as any)
+  ```
+- **Mock `Layout`** to render only children, keeping tests free of Navbar complexity:
+  ```ts
+  vi.mock('../components/Layout', () => ({
+    default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  }))
+  ```
+- Use `vi.resetAllMocks()` in `afterEach` and re-apply implementations in `beforeEach`.
+- Use `findBy*` (async) after actions that trigger data fetching; use `getBy*` for content already in the DOM.
 
 ## E2E Testing
 
