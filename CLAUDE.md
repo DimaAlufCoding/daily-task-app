@@ -22,6 +22,7 @@ daily-task-app/         ← Bun monorepo root
 - **Auth:** better-auth (email/password, session via `useSession` / `signIn` / `signOut`)
 - **HTTP client:** axios (all API calls use `axios` with `withCredentials: true`)
 - **Server state:** TanStack Query v5 (`useQuery` / `useMutation` / `useQueryClient`)
+- **Validation:** zod (server-side request body validation on all mutating routes)
 - **Drag & Drop:** dnd-kit (planned)
 - **Database:** Supabase (planned)
 - **Deployment:** Vercel (planned)
@@ -62,6 +63,20 @@ All client-side API calls use **axios** + **TanStack Query v5**. Never use `fetc
 - On mutation success, update the cache with `queryClient.setQueryData` to avoid unnecessary refetches.
 - Error handling: use `axios.isAxiosError(err)` to extract `err.response?.data` for server error messages.
 - `QueryClientProvider` is mounted at the root in `main.tsx`.
+
+## Server Validation
+
+All mutating API routes use **zod** to validate request bodies. Parse with `schema.safeParse(req.body)` and return `400` with `error.flatten()` on failure. Define schemas at module scope, above the route handler.
+
+```ts
+const createTaskSchema = z.object({ title: z.string().min(1) })
+
+app.post('/api/tasks', async (req, res) => {
+  const result = createTaskSchema.safeParse(req.body)
+  if (!result.success) { res.status(400).json({ error: result.error.flatten() }); return }
+  // use result.data.*
+})
+```
 
 ## shadcn/ui
 

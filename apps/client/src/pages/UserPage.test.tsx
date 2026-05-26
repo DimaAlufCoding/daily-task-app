@@ -9,6 +9,7 @@ vi.mock('axios', () => ({
   default: {
     get: vi.fn(),
     patch: vi.fn(),
+    post: vi.fn(),
     isAxiosError: vi.fn().mockReturnValue(false),
   },
 }))
@@ -128,8 +129,8 @@ describe('UserPage', () => {
     it('does not render an action button for the current user', async () => {
       renderPage()
       await screen.findByText('Alice Admin')
-      // 2 other users → 2 buttons; current user gets "You" label
-      expect(screen.getAllByRole('button')).toHaveLength(2)
+      // 2 action buttons + 1 "Create User" button; current user gets "You" label
+      expect(screen.getAllByRole('button')).toHaveLength(3)
     })
 
     it('shows "Demote to Client" for other admin users', async () => {
@@ -200,6 +201,86 @@ describe('UserPage', () => {
       renderPage()
       await userEvent.click(await screen.findByRole('button', { name: 'Promote to Admin' }))
       expect(await screen.findByRole('button', { name: 'Saving…' })).toBeInTheDocument()
+    })
+  })
+
+  describe('Create User modal', () => {
+    beforeEach(() => {
+      vi.mocked(axios.get).mockResolvedValue({ data: [CURRENT_USER] })
+    })
+
+    it('renders a "Create User" button', async () => {
+      renderPage()
+      await screen.findByText('Alice Admin')
+      expect(screen.getByRole('button', { name: 'Create User' })).toBeInTheDocument()
+    })
+
+    it('opens the modal when "Create User" is clicked', async () => {
+      renderPage()
+      await screen.findByText('Alice Admin')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByLabelText('Name')).toBeInTheDocument()
+      expect(screen.getByLabelText('Email')).toBeInTheDocument()
+      expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    })
+
+    it('shows validation errors when submitting empty form', async () => {
+      renderPage()
+      await screen.findByText('Alice Admin')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Create User', hidden: false }))
+      expect(await screen.findByText('Name must be at least 3 characters')).toBeInTheDocument()
+      expect(screen.getByText('Enter a valid email')).toBeInTheDocument()
+      expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument()
+    })
+
+    it('calls POST /api/users on valid submit and closes modal', async () => {
+      const newUser = { id: 'new-id', name: 'Dave New', email: 'dave@test.com', role: 'CLIENT' as const, createdAt: '2026-01-01T00:00:00Z' }
+      vi.mocked(axios.post).mockResolvedValue({ data: newUser })
+      renderPage()
+      await screen.findByText('Alice Admin')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      await userEvent.type(screen.getByLabelText('Name'), 'Dave New')
+      await userEvent.type(screen.getByLabelText('Email'), 'dave@test.com')
+      await userEvent.type(screen.getByLabelText('Password'), 'password123')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(axios.post).toHaveBeenCalledWith(
+        '/api/users',
+        { name: 'Dave New', email: 'dave@test.com', password: 'password123' },
+        { withCredentials: true },
+      )
+    })
+
+    it('appends the new user to the list after creation', async () => {
+      const newUser = { id: 'new-id', name: 'Dave New', email: 'dave@test.com', role: 'CLIENT' as const, createdAt: '2026-01-01T00:00:00Z' }
+      vi.mocked(axios.post).mockResolvedValue({ data: newUser })
+      renderPage()
+      await screen.findByText('Alice Admin')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      await userEvent.type(screen.getByLabelText('Name'), 'Dave New')
+      await userEvent.type(screen.getByLabelText('Email'), 'dave@test.com')
+      await userEvent.type(screen.getByLabelText('Password'), 'password123')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      expect(await screen.findByText('Dave New')).toBeInTheDocument()
+    })
+
+    it('shows a server error banner when email already exists', async () => {
+      vi.mocked(axios.isAxiosError).mockReturnValue(true)
+      vi.mocked(axios.post).mockRejectedValue({
+        isAxiosError: true,
+        response: { data: { error: 'A user with this email already exists' } },
+      })
+      renderPage()
+      await screen.findByText('Alice Admin')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      await userEvent.type(screen.getByLabelText('Name'), 'Alice Dupe')
+      await userEvent.type(screen.getByLabelText('Email'), 'alice@test.com')
+      await userEvent.type(screen.getByLabelText('Password'), 'password123')
+      await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
+      expect(await screen.findByText('A user with this email already exists')).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
   })
 })
