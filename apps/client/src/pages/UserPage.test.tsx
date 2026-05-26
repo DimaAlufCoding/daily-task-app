@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axios from 'axios'
 import { useSession } from '../lib/auth-client'
@@ -10,6 +10,7 @@ vi.mock('axios', () => ({
     get: vi.fn(),
     patch: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
     isAxiosError: vi.fn().mockReturnValue(false),
   },
 }))
@@ -126,11 +127,11 @@ describe('UserPage', () => {
       expect(screen.getByText('You')).toBeInTheDocument()
     })
 
-    it('does not render an action button for the current user', async () => {
+    it('does not render a role-toggle or delete button for the current user', async () => {
       renderPage()
       await screen.findByText('Alice Admin')
-      // 2 action buttons + 1 "Create User" button; current user gets "You" label
-      expect(screen.getAllByRole('button')).toHaveLength(3)
+      // Create User(1) + current-user edit(1) + other-admin Demote+edit(2) + client Promote+trash+edit(3) = 7
+      expect(screen.getAllByRole('button')).toHaveLength(7)
     })
 
     it('shows "Demote to Client" for other admin users', async () => {
@@ -281,6 +282,89 @@ describe('UserPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Create User' }))
       expect(await screen.findByText('A user with this email already exists')).toBeInTheDocument()
       expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+  })
+
+  describe('delete user', () => {
+    beforeEach(() => {
+      vi.mocked(axios.get).mockResolvedValue({ data: [CURRENT_USER, OTHER_ADMIN, CLIENT_USER] })
+    })
+
+    it('shows a delete button for client users', async () => {
+      renderPage()
+      await screen.findByText('Charlie Client')
+      const trashButtons = screen.getAllByRole('button', { name: 'Delete user' })
+      expect(trashButtons).toHaveLength(1)
+    })
+
+    it('does not show a delete button for admin users', async () => {
+      renderPage()
+      await screen.findByText('Bob Admin')
+      // Only CLIENT_USER gets a trash button; OTHER_ADMIN and CURRENT_USER do not
+      expect(screen.getAllByRole('button', { name: 'Delete user' })).toHaveLength(1)
+    })
+
+    it('does not show a delete button for the current user row', async () => {
+      renderPage()
+      await screen.findByText('Alice Admin')
+      expect(screen.getByText('You')).toBeInTheDocument()
+      // The trash button count stays at 1 (only CLIENT_USER)
+      expect(screen.getAllByRole('button', { name: 'Delete user' })).toHaveLength(1)
+    })
+
+    it('opens the confirmation dialog with the user name when delete is clicked', async () => {
+      renderPage()
+      await screen.findByText('Charlie Client')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete user' }))
+      const dialog = await screen.findByRole('alertdialog')
+      expect(dialog).toBeInTheDocument()
+      expect(within(dialog).getByText(/Charlie Client/)).toBeInTheDocument()
+    })
+
+    it('closes the dialog without calling DELETE when Cancel is clicked', async () => {
+      renderPage()
+      await screen.findByText('Charlie Client')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete user' }))
+      await screen.findByRole('alertdialog')
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+      expect(axios.delete).not.toHaveBeenCalled()
+    })
+
+    it('calls DELETE /api/users/:id when confirmed', async () => {
+      vi.mocked(axios.delete).mockResolvedValue({})
+      renderPage()
+      await screen.findByText('Charlie Client')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete user' }))
+      await screen.findByRole('alertdialog')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() =>
+        expect(axios.delete).toHaveBeenCalledWith(
+          '/api/users/user-client',
+          { withCredentials: true },
+        ),
+      )
+    })
+
+    it('removes the deleted user from the list and closes the dialog', async () => {
+      vi.mocked(axios.delete).mockResolvedValue({})
+      renderPage()
+      await screen.findByText('Charlie Client')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete user' }))
+      await screen.findByRole('alertdialog')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.queryByText('Charlie Client')).not.toBeInTheDocument())
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+
+    it('shows "Deleting…" on the confirm button while the request is in flight', async () => {
+      vi.mocked(axios.delete).mockReturnValue(new Promise(() => {}))
+      renderPage()
+      await screen.findByText('Charlie Client')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete user' }))
+      await screen.findByRole('alertdialog')
+      await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+      expect(await screen.findByRole('button', { name: 'Deleting…' })).toBeInTheDocument()
     })
   })
 })

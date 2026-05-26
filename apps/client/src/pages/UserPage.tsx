@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useSession } from '../lib/auth-client'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -62,7 +72,7 @@ async function createUser(values: CreateUserValues): Promise<User> {
 
 const editUserSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters'),
-  email: z.string().email('Enter a valid email'),
+  email: z.email('Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters').or(z.literal('')).optional(),
 })
 type EditUserValues = z.infer<typeof editUserSchema>
@@ -73,6 +83,10 @@ async function updateUser(userId: string, values: EditUserValues): Promise<User>
   return data
 }
 
+async function deleteUser(userId: string): Promise<void> {
+  await axios.delete(`/api/users/${userId}`, { withCredentials: true })
+}
+
 export default function UserPage() {
   const { data: session } = useSession()
   const currentUserId = session?.user?.id
@@ -80,6 +94,7 @@ export default function UserPage() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
 
   const { data: users, isLoading, error } = useQuery({
     queryKey: ['users'],
@@ -110,6 +125,15 @@ export default function UserPage() {
       queryClient.setQueryData<User[]>(['users'], prev =>
         prev?.map(u => (u.id === updated.id ? updated : u)) ?? [])
       setEditingUser(null)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (userId: string) => deleteUser(userId),
+    onSuccess: () => {
+      queryClient.setQueryData<User[]>(['users'], prev =>
+        prev?.filter(u => u.id !== deletingUser?.id) ?? [])
+      setDeletingUser(null)
     },
   })
 
@@ -243,25 +267,38 @@ export default function UserPage() {
                         {user.id === currentUserId ? (
                           <span className="text-xs text-muted-foreground">You</span>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={mutation.isPending && mutation.variables?.userId === user.id}
-                            onClick={() =>
-                              mutation.mutate({
-                                userId: user.id,
-                                role: user.role === 'ADMIN' ? 'CLIENT' : 'ADMIN',
-                              })
-                            }
-                          >
-                            {mutation.isPending && mutation.variables?.userId === user.id
-                              ? 'Saving…'
-                              : user.role === 'ADMIN'
-                              ? 'Demote to Client'
-                              : 'Promote to Admin'}
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={mutation.isPending && mutation.variables?.userId === user.id}
+                              onClick={() =>
+                                mutation.mutate({
+                                  userId: user.id,
+                                  role: user.role === 'ADMIN' ? 'CLIENT' : 'ADMIN',
+                                })
+                              }
+                            >
+                              {mutation.isPending && mutation.variables?.userId === user.id
+                                ? 'Saving…'
+                                : user.role === 'ADMIN'
+                                ? 'Demote to Client'
+                                : 'Promote to Admin'}
+                            </Button>
+                            {user.role !== 'ADMIN' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Delete user"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setDeletingUser(user)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(user)}>
+                        <Button variant="ghost" size="icon" aria-label="Edit user" onClick={() => openEdit(user)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </div>
@@ -392,6 +429,26 @@ export default function UserPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deletingUser} onOpenChange={(open) => { if (!open) setDeletingUser(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deletingUser?.name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   )
 }

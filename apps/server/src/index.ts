@@ -38,6 +38,7 @@ app.post('/api/tasks', async (req, res) => {
 
 app.get('/api/users', requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({
+    where: { deletedAt: null },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: 'asc' },
   })
@@ -67,7 +68,7 @@ app.patch('/api/users/:id/role', requireAdmin, async (req, res) => {
 
 const updateUserSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(8).optional(),
 })
 
@@ -101,7 +102,7 @@ app.patch('/api/users/:id', requireAdmin, async (req, res) => {
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().trim().min(8),
 })
 
@@ -125,6 +126,30 @@ app.post('/api/users', requireAdmin, async (req, res) => {
   })
 
   res.status(201).json(user)
+})
+
+app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+  const id = req.params.id as string
+  const currentUserId = res.locals.session.user.id
+
+  if (id === currentUserId) {
+    res.status(400).json({ error: 'Cannot delete your own account' })
+    return
+  }
+
+  const target = await prisma.user.findUnique({ where: { id } })
+  if (!target || target.deletedAt) {
+    res.status(404).json({ error: 'User not found' })
+    return
+  }
+
+  if ((target.role as string) === 'ADMIN') {
+    res.status(400).json({ error: 'Admin users cannot be deleted' })
+    return
+  }
+
+  await prisma.user.update({ where: { id }, data: { deletedAt: new Date() } })
+  res.status(204).end()
 })
 
 app.listen(PORT, () => {
