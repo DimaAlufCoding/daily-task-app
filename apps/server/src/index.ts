@@ -7,6 +7,7 @@ import { hashPassword } from "better-auth/crypto"
 import { auth } from './lib/auth'
 import { prisma } from './lib/prisma'
 import { requireAdmin } from './middleware/require-admin'
+import { requireAuth } from './middleware/require-auth'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -22,18 +23,56 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-app.get('/api/tasks', async (_req, res) => {
-  const tasks = await prisma.task.findMany({ orderBy: { createdAt: 'desc' } })
-  res.json(tasks)
+const createTicketSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  category: z.enum(['HEALTH', 'WORK', 'SHOPPING', 'PERSONAL']),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH']),
 })
 
-const createTaskSchema = z.object({ title: z.string().min(1) })
+const updateTicketSchema = createTicketSchema.extend({
+  status: z.enum(['TODO', 'IN_PROGRESS', 'DONE', 'MOVED_TO_NEXT_DAY']).optional(),
+})
 
-app.post('/api/tasks', async (req, res) => {
-  const result = createTaskSchema.safeParse(req.body)
+app.get('/api/tickets', requireAuth, async (_req, res) => {
+  const userId = res.locals.session.user.id
+  const tickets = await prisma.task.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json(tickets)
+})
+
+app.post('/api/tickets', requireAuth, async (req, res) => {
+  const result = createTicketSchema.safeParse(req.body)
   if (!result.success) { res.status(400).json({ error: result.error.flatten() }); return }
-  const task = await prisma.task.create({ data: { title: result.data.title } })
-  res.status(201).json(task)
+  const userId = res.locals.session.user.id
+  const ticket = await prisma.task.create({ data: { ...result.data, userId } })
+  res.status(201).json(ticket)
+})
+
+app.patch('/api/tickets/:id', requireAuth, async (req, res) => {
+  const result = updateTicketSchema.safeParse(req.body)
+  if (!result.success) { res.status(400).json({ error: result.error.flatten() }); return }
+  const id = req.params.id as string
+  const userId = res.locals.session.user.id
+  const existing = await prisma.task.findUnique({ where: { id } })
+  if (!existing || existing.userId !== userId) {
+    res.status(404).json({ error: 'Ticket not found' }); return
+  }
+  const ticket = await prisma.task.update({ where: { id }, data: result.data })
+  res.json(ticket)
+})
+
+app.delete('/api/tickets/:id', requireAuth, async (req, res) => {
+  const id = req.params.id as string
+  const userId = res.locals.session.user.id
+  const existing = await prisma.task.findUnique({ where: { id } })
+  if (!existing || existing.userId !== userId) {
+    res.status(404).json({ error: 'Ticket not found' }); return
+  }
+  await prisma.task.delete({ where: { id } })
+  res.status(204).end()
 })
 
 app.get('/api/users', requireAdmin, async (_req, res) => {

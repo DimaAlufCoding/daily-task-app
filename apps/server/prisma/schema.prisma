@@ -14,17 +14,35 @@ enum Status {
   MOVED_TO_NEXT_DAY
 }
 
+enum Category {
+  HEALTH
+  WORK
+  SHOPPING
+  PERSONAL
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum Role {
   ADMIN
   CLIENT
 }
 
 model Task {
-  id        String   @id @default(cuid())
-  title     String
-  status    Status   @default(TODO)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      Status    @default(TODO)
+  category    Category  @default(PERSONAL)
+  priority    Priority  @default(MEDIUM)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model User {
@@ -42,6 +60,7 @@ model User {
   deletedAt     DateTime?
   sessions      Session[]
   accounts      Account[]
+  tasks         Task[]
 }
 
 model Session {
