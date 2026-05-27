@@ -34,72 +34,94 @@
 
 ---
 
-## Phase 4 — Kanban Board
+## Phase 4 — Email-to-Ticket Integration
 
-20. Board layout: 4 columns (To Do / In Progress / Done / Move to Next Day)
-21. Install and configure `dnd-kit`
-22. Drag-and-drop between columns — update ticket status on drop
-23. Column headers with task count
-24. Empty state per column
+20. Create Mailgun account and configure inbound email routing
+21. Configure dedicated inbound email domain/subdomain
+22. Add webhook endpoint for incoming Mailgun events
+23. Verify webhook signature/security validation
+24. Parse incoming email payload (sender, subject, body)
+25. Match sender email to existing user account
+26. Automatically create ticket from email
+27. Map:
 
----
+* email subject → ticket title
+* email body → ticket description
 
-## Phase 5 — Daily Board Lifecycle
-
-25. Logic to auto-generate the day's board on first load (based on current date)
-26. On app load: check if today's board exists; create it if not
-27. Rollover logic: tickets in "Move to Next Day" appear in next day's "To Do"
-28. End-of-day archiving: mark completed tickets as archived (background job or on-demand)
-
----
-
-## Phase 6 — Ticket Features & Filtering
-
-29. Ticket detail modal (full view with all fields)
-30. Category filter (Health / Work / Shopping / Personal)
-31. Priority filter (Low / Medium / High)
-32. Sort options (priority, creation date, category)
-33. Search bar (filter by title)
-34. Predefined ticket templates (e.g., "Go to the gym", "Review emails")
-35. Custom ticket creation flow
+28. Assign created ticket to current daily board
+29. Add fallback handling for unknown senders
+30. Add webhook logging and error handling
+31. Add local development webhook testing workflow
 
 ---
 
-## Phase 7 — Progress Tracking
+## Phase 5 — Kanban Board
 
-36. Daily progress bar (completed / total tickets)
-37. Weekly summary stats (completion rate per day)
-38. Progress widget on the board header
-
----
-
-## Phase 8 — UI Polish & Responsive Design
-
-39. Mobile-first layout for the Kanban board (horizontal scroll or stacked columns)
-40. Loading skeletons for board and ticket list
-41. Toast notifications for actions (created, moved, deleted)
-42. Error boundary and error states
-43. Empty state for new users (first-day onboarding prompt)
+32. Board layout: 4 columns (To Do / In Progress / Done / Move to Next Day)
+33. Install and configure `dnd-kit`
+34. Drag-and-drop between columns — update ticket status on drop
+35. Column headers with task count
+36. Empty state per column
 
 ---
 
-## Phase 9 — Admin Panel
+## Phase 6 — Daily Board Lifecycle
 
-44. Admin-only route guard
-45. User list view (email, status, join date)
-46. Deactivate / reactivate user account
-47. Trigger password reset for a user
-
----
-
-## Phase 10 — Deployment & Production Hardening
-
-48. Set up production Supabase project
-49. Configure Vercel project and environment variables
-50. Deploy to Vercel
-51. Smoke test: auth, board generation, drag-and-drop, rollover
-52. Set up Supabase real-time subscriptions (sync across devices)
+37. Logic to auto-generate the day's board on first load (based on current date)
+38. On app load: check if today's board exists; create it if not
+39. Rollover logic: tickets in "Move to Next Day" appear in next day's "To Do"
+40. End-of-day archiving: mark completed tickets as archived (background job or on-demand)
 
 ---
 
-> **Suggested order of execution:** Phases 1–3 give you a working data layer fast. Phase 4 is the core UI. Phases 5–6 complete the product logic. Phases 7–10 are polish and production.
+## Phase 7 — Ticket Features & Filtering
+
+41. Ticket detail modal (full view with all fields)
+42. Category filter (Health / Work / Shopping / Personal)
+43. Priority filter (Low / Medium / High)
+44. Sort options (priority, creation date, category)
+45. Search bar (filter by title)
+46. Predefined ticket templates (e.g., "Go to the gym", "Review emails")
+47. Custom ticket creation flow
+
+---
+
+## Phase 8 — Progress Tracking
+
+48. Daily progress bar (completed / total tickets)
+49. Weekly summary stats (completion rate per day)
+50. Progress widget on the board header
+
+---
+
+## Phase 9 — UI Polish & Responsive Design
+
+51. Mobile-first layout for the Kanban board (horizontal scroll or stacked columns)
+52. Loading skeletons for board and ticket list
+53. Toast notifications for actions (created, moved, deleted)
+54. Error boundary and error states
+55. Empty state for new users (first-day onboarding prompt)
+
+---
+
+## Phase 10 — Admin Panel
+
+56. Admin-only route guard
+57. User list view (email, status, join date)
+58. Deactivate / reactivate user account
+59. Trigger password reset for a user
+
+---
+
+## Phase 11 — Deployment & Production Hardening
+
+60. Set up production Supabase project
+61. Configure Vercel project and environment variables
+62. Configure Mailgun production webhook domain
+63. Deploy to Vercel
+64. Smoke test: auth, board generation, drag-and-drop, rollover, email-to-ticket flow
+65. Set up Supabase real-time subscriptions (sync across devices)
+
+---
+
+> **Suggested order of execution:** Phases 1–4 establish the core data creation flows. Phase 5 is the core board UI. Phases 6–7 complete the product logic. Phases 8–11 focus on polish, infrastructure, and production readiness.
